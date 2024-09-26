@@ -17,9 +17,7 @@ from datetime import datetime, timedelta
 import pygame
 import threading
 import sys
-import torch 
 import random
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import speech_recognition as sr
 import pyttsx3
 import cv2
@@ -41,27 +39,6 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Directory for cache (where Hugging Face caches models by default)
 cache_dir = os.path.join(base_dir, '.cache', 'huggingface', 'transformers')
-
-def load_model():
-    tokenizer_path = os.path.join(cache_dir, model_name, 'tokenizer_config.json')
-    model_path = os.path.join(cache_dir, model_name, 'pytorch_model.bin')
-    
-    if os.path.exists(tokenizer_path) and os.path.exists(model_path):
-        print("Loading model from cache.")
-        tokenizer = GPT2Tokenizer.from_pretrained(model_name, local_files_only=True)
-        model = GPT2LMHeadModel.from_pretrained(model_name, local_files_only=True)
-    else:
-        print("Model files not found in cache. Downloading the model...")
-        tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-        model = GPT2LMHeadModel.from_pretrained(model_name)
-        
-        # Save the model to the cache directory
-        tokenizer.save_pretrained(os.path.join(cache_dir, model_name))
-        model.save_pretrained(os.path.join(cache_dir, model_name))
-    
-    return tokenizer, model
-
-tokenizer, model = load_model()
 
 # Path to the resources folder
 resources_dir = os.path.join(base_dir, 'Mr-Smith-AI-Resources')
@@ -142,31 +119,6 @@ def play_video(video_file):
     cap.release()
     pygame.quit()
 
-def generate_response(prompt):
-    """Generate a response from the model with attention mask."""
-    # Set padding token if not already set
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    
-    # Encode the prompt with padding and return tensors
-    inputs = tokenizer.encode(prompt, return_tensors="pt", padding=True, truncation=True)
-    
-    # Create an attention mask where padding tokens are marked as 0
-    attention_mask = torch.ones(inputs.shape, dtype=torch.long)
-    
-    # Generate a response from the model
-    outputs = model.generate(
-        inputs,
-        attention_mask=attention_mask,
-        max_length=150,
-        do_sample=True,
-        pad_token_id=tokenizer.pad_token_id
-    )
-    
-    # Decode the response
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return response
-
 def startup():
     ###Start video and audio in separate threads.
     global video_thread, audio_thread
@@ -177,7 +129,6 @@ def startup():
     audio_thread.start()
 
 def stop_program():
-    ###Stop all threads and clean up resources.
     should_stop.set()  # Signal all threads to stop
     pygame.mixer.music.stop()  # Stop any audio playing
     
@@ -213,24 +164,9 @@ def shutdown_computer():
     elif sys.platform == "linux" or sys.platform == "darwin":
         os.system("shutdown now")
 
-#def play_random_audio():
-#    """Play a random audio file from a predefined list."""
-#    audio_files = ["Temporal flux escalating in this vicinity.mp3", "My systems indicate an alien presence.mp3", "All systems are fully operational..mp3"] 
-#    chosen_file = random.choice(audio_files)
-#    play_audio(chosen_file)
-
-#def random_audio_thread():
-#    """Thread to play random audio files at intervals."""
-#    while not should_stop.is_set():
-#        play_random_audio()
-#        time.sleep(20)  # Adjust the interval (in seconds) as needed
-
 # Run startup function on startup
 startup()
 
-# Start the random audio thread
-#random_audio_thread_instance = threading.Thread(target=random_audio_thread)
-#random_audio_thread_instance.start()
 
 def create_project_document(title, content):
     """Create a new text document with the given title and content."""
@@ -283,11 +219,3 @@ while not should_stop.is_set():
                     start_new_video("s1-enhanced.mp4") 
                 elif "initalize daybreak protocol" in user_command:
                     play_audio("Daybreak Protocol.mp3")
-                #elif "" in user_command:
-                #    response = generate_response(user_command)
-                #elif "who is sarah jane smith": in user_command:
-                #response = generate_response(user_command)
-                else:
-                    response = generate_response(user_command)
-                    # Assuming you want to use a response audio file here as well
-                    #play_audio("response_audio.mp3")  # Replace with a proper audio response file
